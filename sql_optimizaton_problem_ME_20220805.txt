@@ -1,0 +1,109 @@
+WITH sales_dimensions AS (
+    SELECT SUM(S.qtysold*S.pricepaid) AS total_sales
+        ,EXTRACT(month FROM S.saletime) AS month_num --used to get month number so results can be sorted chronologically
+        ,E.eventname
+  		,E.eventid
+  		,E.venueid || '-' || COALESCE(V.venuename,'Unknown') AS venueid_name --combines venue id with venuename, if name is unknown value defaults to Unknown
+        ,V.venuename
+  		,E.venueid
+        ,C.catname
+  		,E.catid
+    FROM dev.public.sales S
+    JOIN dev.public.event E ON E.eventid = S.eventid
+    LEFT JOIN dev.public.venue V ON V.venueid = E.venueid
+    JOIN dev.public.category C ON C.catid = E.catid
+  	GROUP BY E.eventname
+  		,E.eventid
+        ,V.venuename
+  		,E.venueid
+        ,C.catname
+  		,E.catid
+  		,EXTRACT(month FROM S.saletime)
+  
+),
+
+
+/* 
+Aggregates and provides sum of sales and rank by month and category; as well as % difference in sales from one category to the next
+*/
+category AS (
+  	SELECT month_num
+  		,catid
+  		,RT_cat_sales
+  		,cat_rank
+  		,(
+          	(RT_cat_sales - LAG(rt_cat_sales,1) OVER (PARTITION BY month_num ORDER BY cat_rank)) 
+          / 
+          	LAG(rt_cat_sales,1) OVER (PARTITION BY month_num ORDER BY cat_rank)
+          ) AS cat_per_diff --calculates percent difference from previous higher ranked category within month
+  	FROM (
+            SELECT month_num 
+      			,catid
+                ,SUM(total_sales) AS RT_cat_sales
+                ,DENSE_RANK() OVER (PARTITION BY month_num ORDER BY SUM(total_sales) DESC) AS cat_rank
+            FROM sales_dimensions 
+            GROUP BY month_num
+      			,catid
+          )
+  ),
+
+
+/* 
+Aggregates and provides sum of sales and rank by month and category and venue
+*/
+venue AS (
+  	SELECT month_num 
+  		,catid
+  		,venueid
+  		,SUM(total_sales) AS RT_venue_sales 
+  		,DENSE_RANK() OVER (PARTITION BY month_num, catid ORDER BY SUM(total_sales) DESC) AS venue_rank
+  	FROM sales_dimensions 
+  	GROUP BY month_num
+  		,catid
+  		,venueid
+  ),
+
+
+/* 
+Aggregates and provides sum of sales and rank by month and category and venue and event
+*/
+event AS (
+  	SELECT month_num  
+  		,catid
+  		,venueid
+  		,eventid
+  		,SUM(total_sales) AS RT_event_sales
+  		,DENSE_RANK() OVER (PARTITION BY month_num, catid, venueid ORDER BY SUM(total_sales) DESC) AS event_rank
+  	FROM sales_dimensions 
+  	GROUP BY month_num
+  		,catid
+  		,venueid
+  		,eventid
+  )
+
+
+SELECT S.month_num
+	,S.catname
+    ,cat_rank
+    ,S.venueid_name
+    ,venue_rank
+    ,S.eventid
+    ,S.eventname
+    ,event_rank
+    ,S.total_sales
+    --,SUM(total_sales) OVER (PARTITION BY S.month_num,S.catname,S.venuename,S.eventname) AS RT_event_sales2 --diff method of calculating sales by month and dimension
+    ,E.RT_event_sales
+    --,SUM(total_sales) OVER (PARTITION BY S.month_num,S.catname,S.venuename) AS RT_venue_sales2
+    ,V.RT_venue_sales
+    --,SUM(total_sales) OVER (PARTITION BY S.month_num,S.catname) AS RT_cat_sales2
+    ,C.RT_cat_sales
+    ,cat_per_diff
+FROM sales_dimensions S
+JOIN category C ON C.catid = S.catid AND C.month_num = S.month_num
+JOIN venue V ON V.venueid = S.venueid AND V.catid = S.catid AND V.month_num = S.month_num
+JOIN event E ON E.eventid = S.eventid AND E.venueid = S.venueid AND E.catid = S.catid AND E.month_num = S.month_num
+ORDER BY S.month_num
+	,cat_rank
+    ,venue_rank
+    ,event_rank
+    
