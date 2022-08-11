@@ -1,0 +1,7 @@
+- Changed M/DD/YYYY to date format YYYY-MM-DD and replaced blanks with NULL
+- Parsed job title that is before "job" and for long string only kept portion that is before "-" and replaced blanks with NULLs-X job_type: group into similar values and replace blanks with NULL
+- Split location into 3 fields (city,state,zip)
+- Removed any locations from organization or replaced blanks with NULL
+- Split salary into 4 fields (min hrly rate, max hrly rate, min salary, max salary) and replaced blanks with NULL
+- Reformatted job type to be 1 of 3 options: full time, part time, or per diem and replaced blanks with NULLs
+- For sector any long strings or blanks are replaced with NULLs and if it starts with "Genaral/Other:" takes 2nd portion containing more descriptive sector description
