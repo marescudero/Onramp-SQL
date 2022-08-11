@@ -1,5 +1,5 @@
 - Changed M/DD/YYYY to date format YYYY-MM-DD and replaced blanks with NULL
-- Parsed job title that is before "job" and for long string only kept portion that is before "-" and replaced blanks with NULLs-X job_type: group into similar values and replace blanks with NULL
+- Parsed job title that is before "job" and for long string only kept portion that is before "-" and replaced blanks with NULLs
 - Split location into 3 fields (city,state,zip)
 - Removed any locations from organization or replaced blanks with NULL
 - Split salary into 4 fields (min hrly rate, max hrly rate, min salary, max salary) and replaced blanks with NULL
